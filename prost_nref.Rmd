@@ -32,6 +32,7 @@ library(e1071) # for use with `skewness()` function
 library(lmerTest)
 library(tidyverse)
 library(MBESS)
+library(forcats)
 ```
 
 ## Set parameters
@@ -67,21 +68,19 @@ theme_set(theme_classic() +
 options(pillar.sigfig = 3)  # Sets tibbles to print only 3 significant decimal places
 
 # Define a custom color palette
-my_palette <- c(  "#1F78B4","#E31A1C", "#33A02C")
-my_palette_1 <- c("#A6CEE3",  "#FB9A99")
-my_palette_2 <- c( "#1F78B4","#E31A1C" )
-my_palette_3 <- c("#A6CEE3","#1F78B4","#FB9A99","#E31A1C")
-
-
-# Create a function to apply this palette
-scale_color_custom <- function() {
-  scale_color_manual(values = my_palette)
-}
+my_palette_1 <- c(
+  "Congruent"   = "#6CA6CD",  # blue: canonical / well-formed
+  "Neutral"     = "#B2B2B2",  # grey: underspecified / diagnostic target
+  "Incongruent" = "#E31A1C"   # red: canonical mismatch
+)
 
 scale_fill_custom <- function() {
-  scale_fill_manual(values = my_palette)
+  scale_fill_manual(values = my_palette_1, drop = FALSE)
 }
 
+scale_color_custom <- function() {
+  scale_color_manual(values = my_palette_1, drop = FALSE)
+}
 
 
 # Install MBESS if you don't have it
@@ -111,13 +110,13 @@ subjlist <- read_csv('prost_subjlist_20250812.csv')
 subjlist <- as.list(subjlist$x)
 
 centroparietal_channels  <- c('C3','Cz', 'C4', 'CP3', 'CPz', 'CP4', 'P3',  'Pz',  'P4')
-posterior_channels <- c('PZ','P4', 'CP4',  'P3',  'CP3', 'CPZ')
+posterior_channels <- c('PZ', 'P4', 'P8', 'TP8', 'CP4', 'TP7', 'P7', 'P3',  'CP3', 'CPZ')
 frontal_channels <- c('FZ', 'F4', 'F8', 'FT8', 'FC4', 'FT7', 'F7', 'F3',  'FC3', 'FCZ')
 
 nref_labels <- nref |>  filter(ERPset %in% subjlist) |>  filter(ERPset %in% subjlist) |>
   filter(chlabel %in% frontal_channels) |>
   mutate(SubjID = str_extract(ERPset, "\\d{3}")) |>
-  mutate(Referentiality = case_when(grepl("Bound variable", binlabel) ~ "Bound variable",  
+  mutate(Referentiality = case_when(grepl("Bound variable", binlabel) ~ "Bound variable",  
                                             grepl("Referential", binlabel) ~ "Referential")) |>
   mutate(Gender_Status = case_when(grepl("NonGendered" ,binlabel) ~ "NonGendered",  
                                    grepl("Gendered", binlabel) ~ "Gendered")) |>
@@ -133,14 +132,14 @@ nref_labels <- nref |>  filter(ERPset %in% subjlist) |>  filter(ERPset %in% subj
 
 nref_gdr <- nref_labels |> filter(Gender_Status == "Gendered") |>
   select(-Gender_Status) |>
-  mutate(Referentiality = factor(Referentiality, levels= c("Referential", "Bound variable"))) |>
+  mutate(Referentiality = factor(Referentiality, levels= c("Referential", "Bound variable"))) |>
   mutate(Pronoun = factor(Pronoun, levels = c("Congruent", 
                                               "Incongruent", 
                                               "Neutral")))
 
 nref_ngd <- nref_labels |> filter(Gender_Status == "NonGendered") |>
   select(-Gender_Status) |>
-  mutate(Referentiality = factor(Referentiality, levels= c("Referential", "Bound variable"))) |>
+  mutate(Referentiality = factor(Referentiality, levels= c("Referential", "Bound variable"))) |>
   mutate(Pronoun = factor(Pronoun, levels = c("Masculine", 
                                               "Feminine", 
                                               "Neutral"))) 
@@ -161,45 +160,7 @@ R code to test the nested electrode random effect across all four models, compar
 
 <br>
 
-```{r}
-library(afex)
-library(lme4)
 
-# Create a function to compare nested vs non-nested models
-compare_models <- function(data, label) {
-  message("Running model comparisons for: ", label)
-  
-  # Full model: includes nested electrode intercept
-  model_full <- mixed(
-    value ~ Referentiality * Pronoun +
-      (1 + Referentiality + Pronoun | SubjID) +
-      (1 | SubjID:chlabel),
-    data = data,
-    method = "KR",
-    return = "merMod"
-  )
-  
-  # Simpler model: no nested electrode term
-  model_simple <- mixed(
-    value ~ Referentiality * Pronoun +
-      (1 + Referentiality + Pronoun | SubjID),
-    data = data,
-    method = "KR",
-    return = "merMod"
-  )
-  
-  # Likelihood ratio test between full and simplified models
-  comp <- anova(model_simple, model_full)
-  print(comp)
-  
-  # Return model comparison object for inspection
-  return(comp)
-}
-
-# Run comparisons for all datasets
-comp_gdr <- compare_models(nref_gdr, "Gendered")
-comp_ngd <- compare_models(nref_ngd, "Non-Gendered")
-```
 
 ## ANOVA Model I Gendered 
 
@@ -230,8 +191,8 @@ r2(anova_elec_nested_1)
 ```{r}
 tt.ref.contrasts_gdr <- c("Referential Congruent - Referential Incongruent",
                       "Referential Congruent - Referential Neutral",
-                      "Bound variable Congruent - Bound variable Incongruent",
-                      "Bound variable Congruent - Bound variable Neutral")
+                      "Bound variable Congruent - Bound variable Incongruent",
+                      "Bound variable Congruent - Bound variable Neutral")
 emmeans_obj_1 <- emmeans(anova_elec_nested_1, pairwise ~ Referentiality * Pronoun, 
                           adjust = "none", pbkrtest.limit = 6480)
 tt.ref.means_1 <- as_tibble(emmeans_obj_1$emmeans)
@@ -250,32 +211,199 @@ tt.ref.contrasts_df_with_dz_1 <- tt.ref.contrasts_df_1 |>
 # Means and Contrasts
 tt.ref.means_1
 tt.ref.contrasts_df_with_dz_1
+
+tt.ref.means_1 <- tt.ref.means_1 %>%
+  mutate(Referentiality = str_replace_all(Referentiality, "\u00A0", "-"))
+
+
+write_csv(tt.ref.means_1, "tt.ref.means_1.csv")
 ```
 
 ### Interaction Plot
 
+```{r plotting_functions}
+plot_bars <- function(df, title_txt, ylim,
+                      palette = NULL,
+                      legend_order = NULL) {
+
+  # If no palette supplied, build one from the levels in df$Pronoun
+  if (is.null(palette)) {
+    levs <- levels(df$Pronoun)
+    palette <- setNames(rep("#B2B2B2", length(levs)), levs)  # safe fallback
+  }
+  if (is.null(legend_order)) legend_order <- names(palette)
+
+  ggplot(df, aes(x = Referentiality, y = emmean,
+                 fill = Pronoun, colour = Pronoun, group = Pronoun)) +
+    geom_col(alpha = 0.65, position = position_dodge(width = 0.8), width = 0.7) +
+    geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE),
+                  width = 0.08, position = position_dodge(width = 0.8)) +
+    coord_cartesian(ylim = ylim) +
+    ylab("Mean ERP amplitude (µV)") +
+    # scale_fill_manual(values = palette, breaks = legend_order, drop = FALSE) +
+    # scale_color_manual(values = palette, breaks = legend_order, drop = FALSE) +
+    scale_fill_manual(values = palette, breaks = legend_order, drop = FALSE) +
+    scale_color_manual(values = palette, breaks = legend_order, drop = FALSE) +
+
+    labs(title = title_txt) +
+    theme_classic() +
+    theme(
+      panel.grid.major.y = element_line(color = "grey85", linewidth = 0.3),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9),
+      plot.title = element_text(size = 10, hjust = 0.5),
+      axis.title.x = element_blank(),
+      axis.text.x = element_text(size = 9)
+    )
+}
+
+# Make Brackets
+make_brackets_dodged <- function(df,
+                                 comparisons,
+                                 dodge_width = 0.8,
+                                 y_pad = 0.10,
+                                 step = 0.12,
+                                 tick = 0.05,
+                                 level_order = NULL) {
+
+  df <- df %>%
+    mutate(
+      Refer_idx = as.numeric(factor(Referentiality, levels = unique(Referentiality))),
+      Pronoun_f = if (is.null(level_order)) factor(Pronoun)
+                  else factor(Pronoun, levels = level_order),
+      Pron_idx  = as.numeric(Pronoun_f)
+    )
+
+  n_groups <- nlevels(df$Pronoun_f)
+
+  offsets <- seq(-dodge_width/2 + dodge_width/(2*n_groups),
+                 dodge_width/2 - dodge_width/(2*n_groups),
+                 length.out = n_groups)
+
+  offset_df <- data.frame(
+    Pronoun = levels(df$Pronoun_f),
+    offset  = offsets
+  )
+
+  df_pos <- df %>%
+    left_join(offset_df, by = "Pronoun") %>%
+    mutate(x = Refer_idx + offset)
+
+  # baseline height per Referentiality (robust to negative-going components)
+  y_base <- df_pos %>%
+    group_by(Referentiality, Refer_idx) %>%
+    summarise(base = max(emmean + SE, na.rm = TRUE), .groups = "drop") %>%
+    mutate(base = base + y_pad)
+
+  # assign stack index within each Referentiality
+  br <- comparisons %>%
+    group_by(Referentiality) %>%
+    mutate(stack = row_number()) %>%
+    ungroup() %>%
+    left_join(y_base, by = "Referentiality") %>%
+    mutate(y = base + (stack - 1) * step) %>%
+    left_join(df_pos %>% select(Referentiality, Pronoun, x),
+              by = c("Referentiality", "group1" = "Pronoun")) %>%
+    rename(x1 = x) %>%
+    left_join(df_pos %>% select(Referentiality, Pronoun, x),
+              by = c("Referentiality", "group2" = "Pronoun")) %>%
+    rename(x2 = x) %>%
+    mutate(
+      x_min = pmin(x1, x2),
+      x_max = pmax(x1, x2)
+    )
+
+  list(
+    seg_h = br %>% transmute(x = x_min, xend = x_max, y = y, yend = y),
+    seg_l = br %>% transmute(x = x_min, xend = x_min, y = y, yend = y - tick),
+    seg_r = br %>% transmute(x = x_max, xend = x_max, y = y, yend = y - tick),
+    lab   = br %>% transmute(x = (x_min + x_max)/2, y = y + tick * 0.8, label = label)
+  )
+}
+```
+
 ```{r}
-p1 <- tt.ref.means_1 |> 
-  ggplot(aes(x = Referentiality , y = emmean, fill = Pronoun, colour = Pronoun)) +
-  geom_col(alpha = .4, position = position_dodge(.9)) +
-  geom_text(aes(label = round(emmean, digits = 2), vjust = -6), 
-            colour = "black", size =3, position = position_dodge(.9)) +
-  coord_cartesian(ylim = c(-.75, 2.25)) +
-  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), 
-                width = .075,
-                position = position_dodge(.9)) +
-  ylab("Mean ERP Amplitude (microvolts)") +
-  scale_color_custom() +
-  scale_fill_custom() +
-  labs(title = "Gendered Antecedent") +
-  theme(plot.title = element_text(size = 8, hjust = .5),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 8),
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(size= 8)) + 
-        scale_x_discrete(labels=c("Referential" = "Referential \n ('Mary...herself/himself/themselves')",
-                                  "Bound variable" = "Bound variable \n ('Some woman...herself/himself/themselves')")) 
- p1
+# Plot bars
+
+legend_gendered <- c("Incongruent", "Neutral", "Congruent")
+
+
+tt.ref.means_1_plot <- tt.ref.means_1 %>%
+  mutate(
+    Referentiality = fct_relevel(Referentiality, "Referential", "Bound variable"),
+    # Put the theoretical “problem” form first
+    Pronoun = fct_relevel(Pronoun, "Incongruent", "Neutral", "Congruent")
+  )
+
+my_palette_n400_gendered <- c(
+  "Congruent" = "#6CA6CD",  # blue (unmarked/default)
+  "Neutral"   = "#B2B2B2",  # grey (they)
+  "Incongruent"  = "#E31A1C"   # red (marked)
+)
+
+
+p1_n400_gendered <- plot_bars(
+  tt.ref.means_1_plot,
+  "Gendered antecedent (N400/Nref: 300–500 ms)",
+  ylim = c(-0.75, 2.25),
+  palette = my_palette_n400_gendered,
+  legend_order = legend_gendered
+ )
+p1_n400_gendered
+```
+
+```{r}
+# tt.ref.means_1 <- tt.ref.means_1 %>%
+#   mutate(Referentiality = fct_relevel(Referentiality, "Referential", "Bound-variable"),
+#          Pronoun = fct_relevel(Pronoun, "Congruent", "Neutral", "Incongruent"),
+#          alpha_val = ifelse(Pronoun == "Incongruent", 0.8, 0.4))
+# 
+# p1_n400 <- p_n400(tt.ref.means_1, "Gendered antecedent (N400/Nref: 300–500 ms)", ylim = c(-0.75, 2.25))
+# p1_n400 
+```
+
+```{r}
+# Add brackets
+# Use the exact labels that are in your plotting df
+
+legend_gendered <- c("Incongruent", "Neutral", "Congruent")
+
+
+contrast_spec <- tibble::tribble(
+  ~Referentiality,   ~contrast,                ~group1,        ~group2,       ~label,
+  "Referential",  "incongruent_vs_neutral", "Incongruent",  "Congruent",     "italic(p) < .001"
+)
+
+br <- make_brackets_dodged(
+  df = tt.ref.means_1_plot,
+  comparisons = contrast_spec,
+  dodge_width = 0.8,
+  y_pad = 0.12,   # spacing above tallest bar
+  tick = 0.06,    # bracket tick height
+  level_order = c("Incongruent", "Neutral", "Congruent")  # match your bar order
+)
+
+p1_n400_gendered_bracketed <- plot_bars(
+  tt.ref.means_1_plot,
+  "Gendered antecedent (N400/Nref: 300–500 ms)",
+  ylim = c(-0.75, 2.25),
+  palette = my_palette_n400_gendered,
+  legend_order = legend_gendered
+) +
+  
+  geom_segment(data = br$seg_h, aes(x = x, xend = xend, y = y, yend = yend),
+               inherit.aes = FALSE, linewidth = 0.4) +
+  geom_segment(data = br$seg_l, aes(x = x, xend = xend, y = y, yend = yend),
+               inherit.aes = FALSE, linewidth = 0.4) +
+  geom_segment(data = br$seg_r, aes(x = x, xend = xend, y = y, yend = yend),
+               inherit.aes = FALSE, linewidth = 0.4) +
+  geom_text(data = br$lab, aes(x = x, y = y, label = label),
+            inherit.aes = FALSE, size = 3, parse = TRUE)
+
+p1_n400_gendered_bracketed
 ```
 
 ## ANOVA Model II  Singular NonGendered (NonReferential—Someone…himself/herself; Referential—The runner…himself/herself)
@@ -307,8 +435,8 @@ r2(anova_elec_nested_2)
 ```{r}
 tt.ref.contrasts_ngd <- c("Referential Masculine - Referential Feminine",
                       "Referential Masculine - Referential Neutral",
-                      "Bound variable Masculine - Bound variable Feminine",
-                      "Bound variable Masculine - Bound variable Neutral")
+                      "Bound variable Masculine - Bound variable Feminine",
+                      "Bound variable Masculine - Bound variable Neutral")
 emmeans_obj_2 <- emmeans(anova_elec_nested_2, pairwise ~ Referentiality * Pronoun, 
                           adjust = "none", pbkrtest.limit = 6480)
 tt.ref.means_2 <- as_tibble(emmeans_obj_2$emmeans)
@@ -327,32 +455,77 @@ tt.ref.contrasts_df_with_dz_2 <- tt.ref.contrasts_df_2 |>
 # Means and Contrasts
 tt.ref.means_2
 tt.ref.contrasts_df_with_dz_2
+
+tt.ref.means_2 <- tt.ref.means_2 %>%
+  mutate(Referentiality = str_replace_all(Referentiality, "\u00A0", "-"))
+
+write_csv(tt.ref.means_2, "tt.ref.means_2.csv")
 ```
 
 ### Interaction Plot
 
 ```{r}
-p2 <- tt.ref.means_2 |> 
-  ggplot(aes(x = Referentiality , y = emmean, fill = Pronoun, colour = Pronoun)) +
-  geom_col(alpha = .4, position = position_dodge(.9)) +
-  geom_text(aes(label = round(emmean, digits = 2), vjust = -6), 
-            colour = "black", size =3, position = position_dodge(.9)) +
-  coord_cartesian(ylim = c(-.75, 2.25)) +
-  geom_errorbar(aes(ymin = emmean - SE, ymax = emmean + SE), 
-                width = .075,
-                position = position_dodge(.9)) +
-  ylab("Mean ERP Amplitude (microvolts)") +
-  scale_color_custom() +
-  scale_fill_custom() +
-  labs(title = "Non-Gendered Antecedent") +
-  theme(plot.title = element_text(size = 8, hjust = .5),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 8),
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(size= 8)) + 
-        scale_x_discrete(labels=c("Referential" = "Referential \n ('The runner...himself/herself/themselves')",
-                                  "Bound variable" = "Bound variable \n ('Someone...himself/herself/themselves')")) 
- p2
+# Plot bars 2
+
+legend_nongendered <- c("Feminine", "Neutral", "Masculine")
+
+tt.ref.means_2_plot <- tt.ref.means_2 %>%
+  mutate(
+    Referentiality = fct_relevel(Referentiality, "Referential", "Bound variable"),
+    Pronoun = fct_relevel(Pronoun, "Feminine", "Neutral", "Masculine")
+  )
+
+my_palette_n400_nongendered <- c(
+  "Feminine"  = "#E31A1C",   # red (marked)
+    "Neutral"   = "#B2B2B2",  # grey (they)
+  "Masculine" = "#6CA6CD"  # blue (unmarked/default)
+)
+
+
+p2_n400_nongendered <- plot_bars(
+  tt.ref.means_2_plot,
+  "Non-gendered antecedent (N400/Nref: 300–500 ms)",
+  ylim = c(-0.75, 2.25),
+  palette = my_palette_n400_nongendered,
+  legend_order = legend_nongendered)
+
+p2_n400_nongendered
 ```
 
+```{r}
+# --- Non-gendered P600: brackets ---
 
+
+legend_nongendered <- c("Feminine", "Neutral", "Masculine")
+
+contrast_spec_2 <- tibble::tribble(
+  ~Referentiality,   ~contrast,                ~group1,        ~group2,       ~label,
+  "Bound variable",  "feminine_vs_masculine", "Masculine",  "Feminine",     "paste(italic(p),' = ','.043')")
+
+br2 <- make_brackets_dodged(
+  df = tt.ref.means_2_plot,
+  comparisons = contrast_spec_2,
+  dodge_width = 0.8,
+  y_pad = 0.12,
+  tick = 0.06,
+  level_order = c("Feminine", "Neutral", "Masculine")  # match your bar order
+)
+
+p2_n400_nongendered_bracketed <- plot_bars(
+  tt.ref.means_2_plot,
+  "Non-gendered antecedent (N400/Nref: 300–500 ms)",
+  ylim = c(-0.75, 2.25),
+  palette = my_palette_n400_nongendered,
+  legend_order = legend_nongendered) +
+  geom_segment(data = br2$seg_h, aes(x = x, xend = xend, y = y, yend = yend),
+               inherit.aes = FALSE, linewidth = 0.4) +
+  geom_segment(data = br2$seg_l, aes(x = x, xend = xend, y = y, yend = yend),
+               inherit.aes = FALSE, linewidth = 0.4) +
+  geom_segment(data = br2$seg_r, aes(x = x, xend = xend, y = y, yend = yend),
+               inherit.aes = FALSE, linewidth = 0.4) +
+  geom_text(data = br2$lab, aes(x = x, y = y, label = label),
+            inherit.aes = FALSE, size = 3, parse = TRUE)
+
+p2_n400_nongendered_bracketed
+
+```

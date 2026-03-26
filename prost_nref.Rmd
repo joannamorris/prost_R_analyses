@@ -192,14 +192,21 @@ r2(anova_elec_nested_1)
 tt.ref.contrasts_gdr <- c("Referential Congruent - Referential Incongruent",
                       "Referential Congruent - Referential Neutral",
                       "Bound variable Congruent - Bound variable Incongruent",
-                      "Bound variable Congruent - Bound variable Neutral")
+                      "Bound variable Congruent - Bound variable Neutral",
+                      "Referential Incongruent - Referential Neutral",
+                      "Bound variable Incongruent - Bound variable Neutral")
+
+
+
 emmeans_obj_1 <- emmeans(anova_elec_nested_1, pairwise ~ Referentiality * Pronoun, 
                           adjust = "none", pbkrtest.limit = 6480)
 tt.ref.means_1 <- as_tibble(emmeans_obj_1$emmeans)
 tt.ref.contrasts_df_1 <- as_tibble(subset(emmeans_obj_1$contrasts, contrast %in% tt.ref.contrasts_gdr))
 
 tt.ref.contrasts_df_1 <- tt.ref.contrasts_df_1 |>
-  mutate(p.value.adjusted = p.adjust(p.value, method = "bonferroni"))
+   mutate(p.value.adjusted = p.adjust(p.value, method = "bonferroni"))
+
+
 
 # Number of subjects
 n <- 38
@@ -433,10 +440,19 @@ r2(anova_elec_nested_2)
 ### Simple Effects Analyses
 
 ```{r}
-tt.ref.contrasts_ngd <- c("Referential Masculine - Referential Feminine",
-                      "Referential Masculine - Referential Neutral",
-                      "Bound variable Masculine - Bound variable Feminine",
-                      "Bound variable Masculine - Bound variable Neutral")
+# tt.ref.contrasts_ngd <- c("Referential Masculine - Referential Feminine",
+#                       "Referential Masculine - Referential Neutral",
+#                       "Bound variable Masculine - Bound variable Feminine",
+#                       "Bound variable Masculine - Bound variable Neutral")
+
+tt.ref.contrasts_ngd <- c("Referential Masculine - Referential Feminine", 
+                          "Referential Masculine - Referential Neutral",
+                          "Referential Feminine - Referential Neutral", 
+                          "Bound variable Masculine - Bound variable Feminine",
+                          "Bound variable Masculine - Bound variable Neutral",
+                          "Bound variable Feminine - Bound variable Neutral")
+
+
 emmeans_obj_2 <- emmeans(anova_elec_nested_2, pairwise ~ Referentiality * Pronoun, 
                           adjust = "none", pbkrtest.limit = 6480)
 tt.ref.means_2 <- as_tibble(emmeans_obj_2$emmeans)

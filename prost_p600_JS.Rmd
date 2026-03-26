@@ -6,7 +6,7 @@ output:
   pdf_document: default
   html_document: default
 editor_options:
-  chunk_output_type: console
+  chunk_output_type: inline
 fontsize: 10pt
 ---
 
@@ -193,11 +193,11 @@ emmeans_obj_1 <- emmeans(anova_elec_nested_1, pairwise ~ Referentiality * Pronou
 tt.ref.means_1 <- as_tibble(emmeans_obj_1$emmeans)
 # tt.ref.contrasts_1 <- as_tibble(emmeans_obj_1$contrasts)
 
-tt.ref.contrasts_gdr <- c("Referential Congruent - Referential Incongruent",
-                          "Referential Congruent - Referential Neutral",
-                          "Referential Incongruent - Referential Neutral",
-                          "Bound variable Congruent - Bound variable Incongruent",
-                          "Bound variable Congruent - Bound variable Neutral",
+tt.ref.contrasts_gdr <- c("Referential Incongruent - Referential Congruent", 
+                          "Referential Neutral - Referential Congruent",
+                          "Referential Incongruent - Referential Neutral", 
+                          "Bound variable Incongruent - Bound variable Congruent",
+                          "Bound variable Neutral - Bound variable Congruent",
                           "Bound variable Incongruent - Bound variable Neutral")
 
 tt.ref.contrasts_df_1 <- as_tibble(subset(emmeans_obj_1$contrasts,contrast %in% tt.ref.contrasts_gdr))|>
@@ -431,11 +431,11 @@ emmeans_obj_2 <- emmeans(anova_elec_nested_2, pairwise ~ Referentiality * Pronou
                           adjust = "none", pbkrtest.limit = 6480)
 tt.ref.means_2 <- as_tibble(emmeans_obj_2$emmeans)
 
-tt.ref.contrasts_ngd <- c("Referential Masculine - Referential Feminine", 
-                          "Referential Masculine - Referential Neutral",
+tt.ref.contrasts_ngd <- c("Referential Feminine - Referential Masculine", 
+                          "Referential Neutral - Referential Masculine",
                           "Referential Feminine - Referential Neutral", 
-                          "Bound variable Masculine - Bound variable Feminine",
-                          "Bound variable Masculine - Bound variable Neutral",
+                          "Bound variable Feminine - Bound variable Masculine",
+                          "Bound variable Neutral - Bound variable Masculine",
                           "Bound variable Feminine - Bound variable Neutral")
 
 tt.ref.contrasts_df_2 <- as_tibble(subset(emmeans_obj_2$contrasts, contrast %in% tt.ref.contrasts_ngd))
